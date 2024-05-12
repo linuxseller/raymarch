@@ -7,7 +7,29 @@
  * 5. If you are here, then you have hit an object, or have come close enough to count it as hit.
  * 6. Color pixel to a colour of designated object.
  */
-
+/*         |
+ *         |
+ *         |
+ *         |
+ *         |
+ *         |
+ *         |
+ *         |
+ *         |
+ *         |
+ *         |
+ *         |
+ *         |
+ *         |(0,0)___________________________________
+ *        /                                         /
+ *       /             cam(5,5,5)                  /
+ *      /                  |                      /
+ *     /                   |                     /
+ *    /                    |                    /
+ *   /                     |                   /
+ *  /                      |                  /
+ * /_______________________|_________________/
+ */
 #include <stdio.h>
 
 int main(int argc, char **argv){
