@@ -11,22 +11,25 @@
 #include <math.h>
 #include <stdbool.h>
 
+#define MAX(a,b) (((a)>(b))?(a):(b))
+
 typedef struct Vec3 {
     float x, y, z;
 } Vec3;
 
 typedef struct Color {
-    char r,g,b;
+    float r,g,b;
 } Color;
 
 typedef struct Sphere {
     float rad;
     Color col;
     Vec3 pos;
+    float arc, drc, srt;
+    // ambient_reflection_coefficient, diffuse_reflection_coefficient, specular_reflection_coefficient
 } Sphere;
 
-
-#define k 10
+#define k (2000/50)
 Vec3 screen = {10*k,50*k,50*k};
 
 float GetVec3Dist(Vec3 a, Vec3 b){
@@ -38,8 +41,23 @@ float GetVec3Dist(Vec3 a, Vec3 b){
     return dist;
 }
 
+Vec3 Vec3Normalise(Vec3 a){
+    float dist = GetVec3Dist(a, (Vec3){0,0,0});
+    return (Vec3){a.x/dist, a.y/dist, a.z/dist};
+}
+
+float Vec3Dot(Vec3 a, Vec3 b){
+    return a.x*b.x + a.y*b.y + a.z*b.z;
+}
+
 Vec3 Vec3Add(Vec3 a, Vec3 b){
-    return (Vec3){a.x+b.x, a.y+b.x, a.z+b.z};
+    return (Vec3){a.x+b.x, a.y+b.y, a.z+b.z};
+}
+Vec3 Vec3Mul(Vec3 a, float kk){
+    return (Vec3){a.x*kk, a.y*kk, a.z*kk};
+}
+Vec3 Vec3Sub(Vec3 a, Vec3 b){
+    return (Vec3){a.x-b.x, a.y-b.y, a.z-b.z};
 }
 
 void printVec3(Vec3 a){
@@ -58,9 +76,9 @@ int main(int argc, char **argv){
 #define SPHERES 3
     Sphere balls[SPHERES] = {
         /* {screen.y/3, (Color){255, 0, 0}, (Vec3){screen.x*2, screen.y/2-30, screen.z/2}} */
-        {6*k, (Color){255, 0, 0}, (Vec3){20*k, screen.y*2/3, 10*k}},
-        {30*k,  (Color){0, 255, 0}, (Vec3){69*k, k*5,  10*k}},
-        {3*k,  (Color){0, 0, 255}, (Vec3){30*k, k*40, 25*k}},
+        {5*k , (Color){255, 0, 0}, (Vec3){20*k, 25*k, 10*k}, .75, 1.0, 1},
+        {15*k, (Color){0, 255, 0} , (Vec3){30*k, 10*k, 10*k}, .75, 1.0, 1},
+        {25*k , (Color){0, 0, 255}, (Vec3){60*k, 60*k, 25*k}, 0.75, 1, 1},
     };
     for (int z = screen.z-1; z >=0; z--) {
         for (int y = 0; y < screen.y; y++) {
@@ -80,10 +98,10 @@ int main(int argc, char **argv){
             bool is_hit=false;
             enum HitObj ho = None;
             int iterations = 0;
-            while(ho==None && !is_hit && iterations++<256){
+            while(ho==None && !is_hit && iterations++<100){
                 if(cur_pos.z<=0){ho=Floor; break;}
                 for (int i = 0; i < SPHERES; i++) {
-                    if(GetVec3Dist(sphere1.pos, cur_pos)-sphere1.rad>GetVec3Dist(balls[i].pos, cur_pos)-balls[i].rad){
+                    if(GetVec3Dist(sphere1.pos, cur_pos) - sphere1.rad > GetVec3Dist(balls[i].pos, cur_pos) - balls[i].rad){
                         sphere1 = balls[i];
                     }
                 }
@@ -98,17 +116,32 @@ int main(int argc, char **argv){
             }
             switch(ho){
                 case Floor:
-                    /* fprintf(file, "%c%c%c", ((int)cur_pos.x+(int)cur_pos.y)%2*255, ((int)cur_pos.x+(int)cur_pos.y)%2*255, ((int)cur_pos.x+(int)cur_pos.y)%2*255); */
-                    fprintf(file, "%c%c%c", (z+y)%2*255, (z+y)%2*255, (z+y)%2*255);
+                    /* fprintf(file, "%c%c%c", (z+y)%2*255, (z+y)%2*255, (z+y)%2*255); */
+                    fprintf(file, "%c%c%c", 0x30, 0x30, 0x30);
                     goto nextPixel;
                 case Ceil:
-                    fprintf(file, "%c%c%c", 255, 0, 255);
+                    fprintf(file, "%c%c%c", 150, 150, 255);
                     goto nextPixel;
                 default: break;
             }
             if(is_hit){
+                Vec3 light_pos = {0, screen.y*2, screen.z*2};
                 Color col = sphere1.col;
-                fprintf(file, "%c%c%c", col.r, col.g, col.b);
+                // Ambient lighting
+                float ambient_light_intensity = 1;
+                float ambient_light = ambient_light_intensity*sphere1.arc;
+                // Diffuse lighting
+                float light_intensity = 1;
+                Vec3 surface_normal = Vec3Normalise(Vec3Sub(cur_pos,sphere1.pos));
+                Vec3 light_direction = Vec3Normalise(Vec3Sub(light_pos, cur_pos));
+                float diffuse_light = light_intensity * sphere1.drc *
+                                        MAX(Vec3Dot(light_direction, surface_normal), 0);
+                // Total lighting
+                float total_lighting = (ambient_light + diffuse_light)/2; //+ specular_light;
+                fprintf(file, "%c%c%c",
+                            (char)((float)col.r*total_lighting),
+                            (char)((float)col.g*total_lighting),
+                            (char)((float)col.b*total_lighting));
             } else {
                 fprintf(file, "%c%c%c", 0, 0, 0);
             }
